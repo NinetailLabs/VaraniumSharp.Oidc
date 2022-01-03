@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <metadata xmlns="http://schemas.microsoft.com/packaging/21.0.07/nuspec.xsd">
+    <id>VaraniumSharp.Oidc</id>
+    <version>0.0.0</version>
+    <authors>NineTail Labs</authors>
+    <owners>NineTail Labs</owners>
+    <title>VaraniumSharp.Oidc</title>
+    <description>VaraniumSharp wrapper for OIDC.</description>
+    <summary>VaraniumSharp wrapper for OIDC.</summary>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/NinetailLabs/VaraniumSharp</projectUrl>
+    <icon>images\nugetIcon.png</icon>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <copyright>Copyright (c) NineTail Labs 2022</copyright>
+    <releaseNotes>ReleaseNotesHere</releaseNotes>
+    <tags>C# VaraniumSharp Varanium OIDC</tags>
+
+    <repository type="git" url="https://github.com/NinetailLabs/VaraniumSharp.Oidc.git" commit="GitHashHere" />
+
+    <dependencies>
+      <dependency id="VaraniumSharp" version="4.2.1" />
+    </dependencies>
+  </metadata>
+
+  <files>
+    <file src="./bin/Release/netstandard2.0/VaraniumSharp.Oidc.deps.json" target="lib\netstandard2.0" />
+    <file src="./bin/Release/netstandard2.0/VaraniumSharp.Oidc.dll" target="lib\netstandard2.0" />
+    <file src="./bin/Release/netstandard2.0/VaraniumSharp.Oidc.pdb" target="lib\netstandard2.0" />
+    <file src="./bin/Release/netstandard2.0/VaraniumSharp.Oidc.xml" target="lib\netstandard2.0" />
+  </files>
+</package>

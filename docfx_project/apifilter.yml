@@ -1,0 +1,4 @@
+apiRules:
+- exclude:
+    uidRegex: ^VaraniumSharp.Oidc\.Tests
+    type: Type
