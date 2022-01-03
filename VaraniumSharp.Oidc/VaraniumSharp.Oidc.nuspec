@@ -24,6 +24,7 @@
   </metadata>
 
   <files>
+    <file src="../nugetIcon.png" target="\images" />
     <file src="./bin/Release/netstandard2.0/VaraniumSharp.Oidc.deps.json" target="lib\netstandard2.0" />
     <file src="./bin/Release/netstandard2.0/VaraniumSharp.Oidc.dll" target="lib\netstandard2.0" />
     <file src="./bin/Release/netstandard2.0/VaraniumSharp.Oidc.pdb" target="lib\netstandard2.0" />
