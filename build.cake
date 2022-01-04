@@ -34,7 +34,6 @@ Task ("VariableSetup")
 		sonarOrganization = "ninetaillabs";
 		sonarQubeServerUrl = "https://sonarcloud.io";
 		sonarLogin = EnvironmentVariable("SonarToken");
-		excludedFiles = new List<string> { "**/System.Text.Json.SourceGeneration/**/*.g.cs" };
 	});
 
 Task ("Default")
