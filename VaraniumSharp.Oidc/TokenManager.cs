@@ -58,11 +58,6 @@ namespace VaraniumSharp.Oidc
         /// <inheritdoc />
         public TimeSpan RefreshTimeSpan { get; private set; }
 
-        /// <summary>
-        /// Get list of TokenNames that have Populated server details
-        /// </summary>
-        public List<string> ServerDetailKeys => _serverDetails.Keys.ToList();
-
         #endregion
 
         #region Public Methods
@@ -130,6 +125,11 @@ namespace VaraniumSharp.Oidc
                 semaphore.Release();
             }
         }
+
+        /// <summary>
+        /// Get list of TokenNames that have Populated server details
+        /// </summary>
+        public List<string> ServerDetailKeys() => _serverDetails.Keys.ToList();
 
         /// <inheritdoc />
         public void SetupRefreshTimeSpan(TimeSpan refreshTimeSpan)

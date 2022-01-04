@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 
 namespace VaraniumSharp.Oidc.Tests.Logging
@@ -10,8 +9,9 @@ namespace VaraniumSharp.Oidc.Tests.Logging
 
         public Exception? Exception { get; set; }
 
-        public string FormattedMessage { get; set; }
-        public LogLevel Level { get; set; }
+        public string FormattedMessage { get; init; }
+
+        public LogLevel Level { get; init; }
 
         #endregion
     }
