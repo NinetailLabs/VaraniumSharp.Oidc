@@ -28,11 +28,6 @@ namespace VaraniumSharp.Oidc.Interfaces
         /// </summary>
         TimeSpan RefreshTimeSpan { get; }
 
-        /// <summary>
-        /// Get list of TokenNames that have Populated server details
-        /// </summary>
-        List<string> ServerDetailKeys { get; }
-
         #endregion
 
         #region Public Methods
@@ -57,6 +52,11 @@ namespace VaraniumSharp.Oidc.Interfaces
         /// <exception cref="ArgumentException">Thrown if the ServerDetails for the specific tokenName has not been populated</exception>
         /// <returns>TokenData if the user has an Access Token, otherwise null</returns>
         Task<TokenData> CheckSigninAsync(string tokenName, Dictionary<string, string> extraParameters = null);
+
+        /// <summary>
+        /// Get list of TokenNames that have Populated server details
+        /// </summary>
+        List<string> ServerDetailKeys();
 
         /// <summary>
         /// Sets the TimeSpan used to determine if a valid token should be refreshed.

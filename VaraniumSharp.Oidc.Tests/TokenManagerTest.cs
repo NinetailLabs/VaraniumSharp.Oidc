@@ -210,7 +210,7 @@ namespace VaraniumSharp.Oidc.Tests
             await sut.AddServerDetails(tokenName, serverDetails2);
 
             // assert
-            sut.ServerDetailKeys.Count.Should().Be(1);
+            sut.ServerDetailKeys().Count.Should().Be(1);
         }
 
         [Fact]
@@ -691,7 +691,7 @@ namespace VaraniumSharp.Oidc.Tests
             await sut.AddServerDetails(tokenName, serverDetails);
 
             // assert
-            sut.ServerDetailKeys.Should().Contain(tokenName);
+            sut.ServerDetailKeys().Should().Contain(tokenName);
         }
 
         [Fact]
