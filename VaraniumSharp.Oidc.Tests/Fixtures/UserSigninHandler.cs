@@ -5,12 +5,13 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
+using HttpMockSlim;
+using HttpMockSlim.Model;
 using Newtonsoft.Json;
 
 namespace VaraniumSharp.Oidc.Tests.Fixtures
 {
-    public class UserSigninHandler
+    public class UserSigninHandler : IHttpHandlerMock
     {
         #region Constructor
 
@@ -32,12 +33,12 @@ namespace VaraniumSharp.Oidc.Tests.Fixtures
 
         #region Public Methods
 
-        public void Handle(HttpContext context)
+        public bool Handle(HttpListenerContext context)
         {
-            if (context.Request.Method == "GET")
+            if (context.Request.HttpMethod == "GET")
             {
-                var state = context.Request.Query["State"];
-                _nonce = context.Request.Query["Nonce"];
+                var state = context.Request.QueryString["state"];
+                _nonce = context.Request.QueryString["Nonce"] ?? string.Empty;
 
                 _idToken = _generator.GenerateToken(new ClaimsIdentity(new List<Claim>
                 {
@@ -61,31 +62,36 @@ namespace VaraniumSharp.Oidc.Tests.Fixtures
                     })).Wait();
                 }
 
-                return;
+                return true;
             }
 
-            if (context.Request.Method == "POST")
+            if (context.Request.HttpMethod == "POST")
             {
                 var responseData = JsonConvert.SerializeObject(new TokenResponseWrapper(_accessToken, _refreshToken)
                 {
                     IdentityToken = _idToken
                 });
 
+                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                context.Response.ContentType = "application/json";
+                context.Response.SendChunked = true;
                 var memStream = new MemoryStream();
                 var streamWrite = new StreamWriter(memStream);
                 streamWrite.Write(responseData);
                 streamWrite.Flush();
                 memStream.Position = 0;
-                memStream.CopyTo(context.Response.Body);
+                memStream.CopyTo(context.Response.OutputStream);
+                context.Response.Close();
 
-                context.Response.ContentType = "application/json";
-                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                return true;
             }
-        }
 
-        public void HandleTokenExchange(HttpContext context)
+            return false;
+        }
+        
+        public void HandleTokenExchange(Request request, Response response)
         {
-            var streamReader = new StreamReader(context.Request.Body);
+            var streamReader = new StreamReader(request.Body);
             var data = streamReader.ReadToEnd();
             var dataArray = data.Split("&");
             var codeArray = dataArray.First(x => x.StartsWith("code")).Split("=");
@@ -97,7 +103,7 @@ namespace VaraniumSharp.Oidc.Tests.Fixtures
                 new Claim("nonce", nonce)
             }));
 
-            var response = new
+            var responseData = new
             {
                 access_token = _accessToken,
                 refresh_token = _refreshToken,
@@ -106,15 +112,15 @@ namespace VaraniumSharp.Oidc.Tests.Fixtures
                 nonce
             };
 
-            var jsonResponse = JsonConvert.SerializeObject(response);
-            context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.OK;
+            var jsonResponse = JsonConvert.SerializeObject(responseData);
+            response.ContentType = "application/json";
+            response.StatusCode = (int)HttpStatusCode.OK;
             var memStream = new MemoryStream();
             var streamWrite = new StreamWriter(memStream);
             streamWrite.Write(jsonResponse);
             streamWrite.Flush();
             memStream.Position = 0;
-            memStream.CopyTo(context.Response.Body);
+            memStream.CopyTo(response.Body);
         }
 
         #endregion

@@ -1,6 +1,6 @@
 ﻿using System.IO;
 using System.Net;
-using Microsoft.AspNetCore.Http;
+using HttpMockSlim.Model;
 using Newtonsoft.Json;
 
 namespace VaraniumSharp.Oidc.Tests.Fixtures
@@ -26,13 +26,13 @@ namespace VaraniumSharp.Oidc.Tests.Fixtures
 
         #region Public Methods
 
-        public void Handle(HttpContext context)
+        public void Handle(Request request, Response response)
         {
-            if (context.Request.Method == "POST")
+            if (request.Method == "POST")
             {
                 if (_returnError)
                 {
-                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    response.StatusCode = (int)HttpStatusCode.BadRequest;
                     _returnError = false;
                     return;
                 }
@@ -40,14 +40,21 @@ namespace VaraniumSharp.Oidc.Tests.Fixtures
                 var tokenResponse =
                     JsonConvert.SerializeObject(new TokenResponseWrapper(_accessToken, _refreshToken));
 
-                context.Response.ContentType = "application/json";
-                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                response.ContentType = "application/json";
+                response.StatusCode = (int)HttpStatusCode.OK;
                 var memStream = new MemoryStream();
                 var streamWrite = new StreamWriter(memStream);
                 streamWrite.Write(tokenResponse);
                 streamWrite.Flush();
                 memStream.Position = 0;
-                memStream.CopyTo(context.Response.Body);
+                if (response.Body == null)
+                {
+                    response.Body = memStream;
+                }
+                else
+                {
+                    memStream.CopyTo(response.Body);
+                }
             }
         }
 

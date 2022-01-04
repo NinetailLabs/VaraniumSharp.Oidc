@@ -1,6 +1,6 @@
 ﻿using IdentityModel.OidcClient;
 
-namespace VaraniumSharp.Oidc
+namespace VaraniumSharp.Oidc.Models
 {
     /// <summary>
     /// Stores options required to connect to the Identity Server and authenticate the client

@@ -8,7 +8,7 @@ namespace VaraniumSharp.Oidc.Tests.Logging
     {
         #region Properties
 
-        public List<LogDetails> LogEntries { get; } = new();
+        public List<LogDetails> LogEntries { get; } = new List<LogDetails>();
 
         #endregion
 
@@ -17,6 +17,11 @@ namespace VaraniumSharp.Oidc.Tests.Logging
         public IDisposable BeginScope<TState>(TState state)
         {
             throw new NotImplementedException();
+        }
+
+        public void ClearLogs()
+        {
+            LogEntries.Clear();
         }
 
         public bool IsEnabled(LogLevel logLevel)
@@ -29,9 +34,9 @@ namespace VaraniumSharp.Oidc.Tests.Logging
             LogEntries.Add(new LogDetails
             {
                 Level = logLevel,
-                Exception = exception
+                Exception = exception,
+                FormattedMessage = formatter.Invoke(state, exception)
             });
-            throw new NotImplementedException();
         }
 
         #endregion

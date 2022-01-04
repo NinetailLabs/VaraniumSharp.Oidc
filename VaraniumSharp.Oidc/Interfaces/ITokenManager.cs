@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using VaraniumSharp.Oidc.Models;
 
 namespace VaraniumSharp.Oidc.Interfaces
 {

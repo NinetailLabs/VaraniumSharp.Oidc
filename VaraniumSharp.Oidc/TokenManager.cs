@@ -13,6 +13,7 @@ using VaraniumSharp.Attributes;
 using VaraniumSharp.Enumerations;
 using VaraniumSharp.Interfaces.GenericHelpers;
 using VaraniumSharp.Oidc.Interfaces;
+using VaraniumSharp.Oidc.Models;
 
 namespace VaraniumSharp.Oidc
 {

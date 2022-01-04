@@ -2,10 +2,9 @@
 using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
+using HttpMockSlim.Model;
 using IdentityModel.Client;
-using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace VaraniumSharp.Oidc.Tests.Fixtures
 {
@@ -19,9 +18,9 @@ namespace VaraniumSharp.Oidc.Tests.Fixtures
 
         #region Public Methods
 
-        public void Handle(HttpContext context)
+        public bool Handle(Request request, Response response)
         {
-            if (context.Request.Method == "GET")
+            if (request.Method == "GET")
             {
                 //So this is a little weird, but it is apparently the way it expects the claims so that's how we do it
                 var claimCollection = new UserInfoData
@@ -32,15 +31,25 @@ namespace VaraniumSharp.Oidc.Tests.Fixtures
                 var userInfo = new UserInfoResponseFixture();
                 userInfo.InitAsync(userInfoJson).Wait();
 
-                context.Response.ContentType = "application/json";
-                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                response.ContentType = "application/json";
+                response.StatusCode = (int)HttpStatusCode.OK;
                 var memStream = new MemoryStream();
                 var streamWrite = new StreamWriter(memStream);
                 streamWrite.Write(userInfo.Json);
                 streamWrite.Flush();
                 memStream.Position = 0;
-                memStream.CopyTo(context.Response.Body);
+                if (response.Body == null)
+                {
+                    response.Body = memStream;
+                }
+                else
+                {
+                    memStream.CopyTo(response.Body);
+                }
+                return true;
             }
+
+            return false;
         }
 
         #endregion
@@ -51,7 +60,9 @@ namespace VaraniumSharp.Oidc.Tests.Fixtures
 
             public async Task InitAsync(string json)
             {
-                Json = JsonConvert.DeserializeObject<JsonElement>(json);
+                var doc = JsonDocument.Parse(json);
+                Json = doc.RootElement;
+                //Json = JsonConvert.DeserializeObject<JsonElement>(json);
                 await InitializeAsync(json);
             }
 

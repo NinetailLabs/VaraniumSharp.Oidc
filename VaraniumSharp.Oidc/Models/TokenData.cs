@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IdentityModel.Tokens.Jwt;
 
-namespace VaraniumSharp.Oidc
+namespace VaraniumSharp.Oidc.Models
 {
     /// <summary>
     /// Storage for Token information

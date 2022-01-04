@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
-using HttpMock.Net;
+using HttpMockSlim;
 using IdentityModel.OidcClient;
+using Microsoft.Extensions.Logging;
 using Moq;
 using VaraniumSharp.Interfaces.GenericHelpers;
 using VaraniumSharp.Oidc.Interfaces;
+using VaraniumSharp.Oidc.Models;
 using VaraniumSharp.Oidc.Tests.Fixtures;
 using VaraniumSharp.Oidc.Tests.Logging;
 using Xunit;
@@ -38,11 +41,11 @@ namespace VaraniumSharp.Oidc.Tests
             public TokenManager Instance { get; }
             public IStaticMethodWrapper StaticMethodWrapper => StaticMethodWrapperMock.Object;
 
-            public Mock<IStaticMethodWrapper> StaticMethodWrapperMock { get; } = new();
+            public Mock<IStaticMethodWrapper> StaticMethodWrapperMock { get; } = new Mock<IStaticMethodWrapper>();
             public TokenGenerator TokenGenerator { get; }
 
             public ITokenStorage TokenStorage => TokenStorageMock.Object;
-            public Mock<ITokenStorage> TokenStorageMock { get; } = new();
+            public Mock<ITokenStorage> TokenStorageMock { get; } = new Mock<ITokenStorage>();
 
             #endregion
 
@@ -53,8 +56,7 @@ namespace VaraniumSharp.Oidc.Tests
                 StartServer();
                 var handler = new RefreshTokenHandler(newAccessToken, newRefreshToken, returnError);
                 HttpMock.HttpMock
-                    .WhenPost(handler.TokenPath, context => true)
-                    .Do(context => { handler.Handle(context); });
+                    .Add("POST", handler.TokenPath, (request, response) => handler.Handle(request, response));
             }
 
             public void AuthSetup(string accessToken, string refreshToken)
@@ -75,19 +77,14 @@ namespace VaraniumSharp.Oidc.Tests
 
                 var handler = new UserSigninHandler(RedirectUrl, accessToken, refreshToken, TokenGenerator);
                 HttpMock.HttpMock
-                    .WhenGet(handler.AuthPath)
-                    .Do(context => { handler.Handle(context); });
-                HttpMock.HttpMock
-                    .WhenPost(handler.AuthPath, context => true)
-                    .Do(context => { handler.Handle(context); });
+                    .Add(handler);
             }
 
             public void SetupCertificates()
             {
                 StartServer();
                 HttpMock.HttpMock
-                    .WhenGet(ServerCertificatePath)
-                    .Respond(TokenGenerator.JsonWebKeyString);
+                    .Add("GET", ServerCertificatePath, (request, response) => response.SetBody(TokenGenerator.JsonWebKeyString));
             }
 
             public async Task SetupServerDataAsync(string tokenName, bool replaceRefresh = false)
@@ -111,23 +108,16 @@ namespace VaraniumSharp.Oidc.Tests
             public void TokenEndpointSetup(string accessToken, string refreshToken)
             {
                 StartServer();
+                var handler = new UserSigninHandler(RedirectUrl, accessToken, refreshToken, TokenGenerator);
                 HttpMock.HttpMock
-                    .WhenPost(TokenEndpoint, context => true)
-                    .Do(context =>
-                    {
-                        var handler = new UserSigninHandler(RedirectUrl, accessToken, refreshToken, TokenGenerator);
-
-                        handler.HandleTokenExchange(context);
-                    });
+                    .Add("POST", TokenEndpoint, (request, response) => handler.HandleTokenExchange(request, response));
             }
 
             public void UserInfoSetup()
             {
                 StartServer();
                 var handler = new UserInfoFixture();
-                HttpMock.HttpMock
-                    .WhenGet(handler.UserInfoPath)
-                    .Do(context => { handler.Handle(context); });
+                HttpMock.HttpMock.Add("GET", handler.UserInfoPath, (request, response) => handler.Handle(request, response));
             }
 
             public void WellKnownSetup()
@@ -136,8 +126,10 @@ namespace VaraniumSharp.Oidc.Tests
                 var data = File.ReadAllText(Path.Combine(appPath, "Resources", "OpenIdConfig.json"));
                 StartServer();
                 HttpMock.HttpMock
-                    .WhenGet(WellKnownPath)
-                    .Respond(data);
+                    .Add("GET", WellKnownPath, (request, response) =>
+                    {
+                        response.SetBody(data);
+                    });
             }
 
             #endregion
@@ -174,7 +166,7 @@ namespace VaraniumSharp.Oidc.Tests
 
             public int CallCount { get; private set; }
 
-            public HttpHandlerBuilder HttpMock { get; private set; }
+            public HttpMock HttpMock { get; private set; }
 
             public bool PathWasCalled { get; private set; }
 
@@ -191,7 +183,9 @@ namespace VaraniumSharp.Oidc.Tests
             {
                 if (HttpMock == null)
                 {
-                    HttpMock = Server.Start(port);
+                    var url = $"http://localhost:{port}/";
+                    HttpMock = new HttpMock();
+                    HttpMock.Start(url);
                 }
             }
 
@@ -233,13 +227,14 @@ namespace VaraniumSharp.Oidc.Tests
             act.Should().Throw<ArgumentException>();
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task FailureDuringRefreshTokenRetrievalWillResultInFullTokenRetrieval()
         {
             // arrange
             var logProvider = new TestLogProvider();
-            Logging.StaticLogger.LoggerFactory.AddProvider(logProvider);
+            VaraniumSharp.Logging.StaticLogger.LoggerFactory.AddProvider(logProvider);
             var loggerMock = (TestLogger)logProvider.CreateLogger(string.Empty);
+            loggerMock.ClearLogs();
             const string tokenName = "Test Token";
             var refreshToken = Guid.NewGuid().ToString();
             var fixture = new TokenManagerFixture();
@@ -267,22 +262,29 @@ namespace VaraniumSharp.Oidc.Tests
             await sut.CheckSigninAsync(tokenName);
 
             // assert
-            // TODO - Verify the log entries
-            //loggerMock.Verify(t =>
-            //    t.LogError("Error occurred while trying to refresh Access Token. {Error}", It.IsAny<string>()));
-            //loggerMock.Verify(t => t.LogError("Error occurred during user authentication. {Error}", It.IsAny<string>()),
-            //    Times.Once);
+            loggerMock.LogEntries.Count.Should().BeGreaterOrEqualTo(2);
+            loggerMock.LogEntries.FirstOrDefault(x =>
+                    x.Level == LogLevel.Error &&
+                    x.FormattedMessage.Contains("Error occurred while trying to refresh Access Token. "))
+                .Should()
+                .NotBeNull();
+            loggerMock.LogEntries.FirstOrDefault(x =>
+                    x.Level == LogLevel.Error &&
+                    x.FormattedMessage.Contains("Error occurred during user authentication. "))
+                .Should()
+                .NotBeNull();
 
             fixture.HttpMock.HttpMock.Dispose();
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task FailureToGetATokenWithTimerRefreshDoesNotBroadcastARefreshEvent()
         {
             // arrange
             var logProvider = new TestLogProvider();
-            Logging.StaticLogger.LoggerFactory.AddProvider(logProvider);
-            var loggerMock = logProvider.CreateLogger(string.Empty);
+            VaraniumSharp.Logging.StaticLogger.LoggerFactory.AddProvider(logProvider);
+            var loggerMock = (TestLogger)logProvider.CreateLogger(string.Empty);
+            loggerMock.ClearLogs();
             var refreshTimeout = TimeSpan.FromSeconds(10);
             const string tokenName = "Test Token";
             var refreshToken = Guid.NewGuid().ToString();
@@ -313,11 +315,11 @@ namespace VaraniumSharp.Oidc.Tests
 
             // assert
             wasRefreshed.Should().BeFalse();
-            // TODO - Verify the log entries
-            //loggerDummy.Verify(
-            //    t => t.Warning(
-            //        "Attempting to refresh access token failed. No further auto-refreshes will occur for {TokenName}",
-            //        tokenName), Times.Once);
+            loggerMock.LogEntries.FirstOrDefault(x =>
+                    x.Level == LogLevel.Warning && x.FormattedMessage.Contains(
+                        $"Attempting to refresh access token failed. No further auto-refreshes will occur for {tokenName}"))
+                .Should()
+                .NotBeNull();
 
             fixture.HttpMock.Dispose();
         }
@@ -345,7 +347,7 @@ namespace VaraniumSharp.Oidc.Tests
             result.Should().Be(tokenDataDummy);
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task IfRefreshIntervalIsChangedExistingTokenRefreshesAreAdjusted()
         {
             // arrange
@@ -391,7 +393,7 @@ namespace VaraniumSharp.Oidc.Tests
             fixture.HttpMock.Dispose();
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task IfRefreshIntervalIsMadeLongerThanTokensRemainingTimeTheTokenIsRefreshed()
         {
             // arrange
@@ -437,7 +439,7 @@ namespace VaraniumSharp.Oidc.Tests
             fixture.HttpMock.Dispose();
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task IfThereAreNoTokensSigninIsExecutedToAcquireTokens()
         {
             // arrange
@@ -449,8 +451,8 @@ namespace VaraniumSharp.Oidc.Tests
 
             fixture.WellKnownSetup();
             fixture.SetupCertificates();
-            fixture.AuthSetup(token, refreshToken);
             fixture.UserInfoSetup();
+            fixture.AuthSetup(token, refreshToken);
             fixture.TokenEndpointSetup(token, refreshToken);
             var sut = fixture.Instance;
 
@@ -465,7 +467,7 @@ namespace VaraniumSharp.Oidc.Tests
             fixture.HttpMock.Dispose();
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task IfTheSameTokenIsRetrievedAgainAndItIsStillValidItWillNotBeRetrievedFromStorageAgain()
         {
             // arrange
@@ -489,7 +491,7 @@ namespace VaraniumSharp.Oidc.Tests
             fixture.TokenStorageMock.Verify(t => t.RetrieveAccessTokenAsync(tokenName), Times.Once);
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task IfTokenExpiredAndRefreshTokenIsReplacedOnRefreshItIsCorrectlyUpdatedInStorage()
         {
             // arrange
@@ -523,7 +525,7 @@ namespace VaraniumSharp.Oidc.Tests
             fixture.HttpMock.Dispose();
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task IfTokenExpiredRefreshTokenIsRetrievedAndUsedToRefreshTheAccessToken()
         {
             // arrange
@@ -559,7 +561,7 @@ namespace VaraniumSharp.Oidc.Tests
             fixture.HttpMock.Dispose();
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task IfTokenExpiresAfterRefreshIntervalItIsAutomaticallyRefreshed()
         {
             // arrange
@@ -596,7 +598,7 @@ namespace VaraniumSharp.Oidc.Tests
             fixture.HttpMock.Dispose();
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task IfTokenExpiresWithinTheRefreshIntervalItIsRefreshed()
         {
             // arrange
@@ -629,7 +631,7 @@ namespace VaraniumSharp.Oidc.Tests
             fixture.HttpMock.Dispose();
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task OnTokenRefreshTheTokenRefreshedEventIsRaised()
         {
             // arrange
@@ -707,13 +709,14 @@ namespace VaraniumSharp.Oidc.Tests
             sut.RefreshTimeSpan.Should().Be(refreshTimeSpan);
         }
 
-        [Fact(Skip = "HttpMock.net is broken with Microsoft.Extensions.Primitives 5.0.0.0 and as Initiator is being deprecated soon I'm not going to look for a workaround")]
+        [Fact]
         public async Task SigninFailureReturnsNullAndLogsTheIssue()
         {
             // arrange
             var logProvider = new TestLogProvider();
-            Logging.StaticLogger.LoggerFactory.AddProvider(logProvider);
-            var loggerMock = logProvider.CreateLogger(string.Empty);
+            VaraniumSharp.Logging.StaticLogger.LoggerFactory.AddProvider(logProvider);
+            var loggerMock = (TestLogger)logProvider.CreateLogger(string.Empty);
+            loggerMock.ClearLogs();
             const string tokenName = "Test Token";
             var refreshToken = Guid.NewGuid().ToString();
             var fixture = new TokenManagerFixture();
@@ -730,9 +733,11 @@ namespace VaraniumSharp.Oidc.Tests
 
             // assert
             result.Should().BeNull();
-            // TODO - Verify the log entries
-            //loggerMock.Verify(t => t.Error("Error occurred during user authentication. {Error}", It.IsAny<string>()),
-            //    Times.Once);
+            loggerMock.LogEntries.Count.Should().Be(1);
+            loggerMock.LogEntries.FirstOrDefault(x =>
+                    x.Level == LogLevel.Error &&
+                    x.FormattedMessage.Contains("Error occurred during user authentication."))
+                .Should().NotBeNull();
 
             fixture.HttpMock.HttpMock.Dispose();
         }
