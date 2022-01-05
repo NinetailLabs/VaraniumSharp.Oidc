@@ -2,17 +2,44 @@
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
+	  <SonarQubeTestProject>true</SonarQubeTestProject>
+	  <IsPackable>false</IsPackable>
+	  <Nullable>enable</Nullable>
   </PropertyGroup>
 
+	<PropertyGroup>
+		<!-- Exclude the project from analysis -->
+		<SonarQubeExclude>true</SonarQubeExclude>
+	</PropertyGroup>
+
   <ItemGroup>
+    <PackageReference Include="Appveyor.TestLogger" Version="2.0.0" />
+    <PackageReference Include="coverlet.collector" Version="3.1.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="FluentAssertions" Version="6.3.0" />
+    <PackageReference Include="IdentityModel.OidcClient" Version="5.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
     <PackageReference Include="Moq" Version="4.16.1" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.15.0" />
+    <PackageReference Include="Viki.HttpMockSlim" Version="2.0.11" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VaraniumSharp.Oidc\VaraniumSharp.Oidc.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Resources\OpenIdConfig.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
