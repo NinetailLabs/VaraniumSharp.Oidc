@@ -253,7 +253,7 @@ namespace VaraniumSharp.Oidc
         {
             if (!request.HasEntityBody)
             {
-                return null;
+                return request.RawUrl;
             }
 
             using (var body = request.InputStream)
